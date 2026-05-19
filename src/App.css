@@ -554,31 +554,33 @@ button {
   }
   
   .mobile-controls {
-    display: flex;
-    justify-content: center;
-    gap: 28px;
-    width: 100%;
-    margin-top: 10px;
-    margin-bottom: 8px;
-  }
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  width: 100%;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
 }
 
 .mobile-control-btn {
-  width: 82px;
-  height: 58px;
+  width: 92px;
+  height: 62px;
   border: none;
-  border-radius: 18px;
-  background: #222;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #2f2f2f, #171717);
   color: white;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   cursor: pointer;
   user-select: none;
   touch-action: none;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
 .mobile-control-btn:active {
-  transform: scale(0.95);
-  background: #444;
+  transform: translateY(3px) scale(0.96);
+  background: linear-gradient(180deg, #444, #222);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
