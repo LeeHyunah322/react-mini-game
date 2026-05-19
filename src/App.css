@@ -462,6 +462,11 @@ button {
   }
 }
 
+.mobile-controls {
+  display: none;
+}
+
+
 /* 모바일 대응 */
 @media (max-width: 600px) {
   html,
@@ -556,10 +561,6 @@ button {
     margin-top: 10px;
     margin-bottom: 8px;
   }
-}
-
-.mobile-controls {
-  display: none;
 }
 
 .mobile-control-btn {
