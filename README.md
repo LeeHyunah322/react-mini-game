@@ -1,16 +1,80 @@
-# React + Vite
+# React Mini Game
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 기반으로 제작한 미니게임 프로젝트입니다.  
+두더지 잡기와 방향키 장애물 피하기 게임을 구현했으며, 사용자 입력에 따른 실시간 상태 변화, 타이머, 충돌 판정, 아이템 효과, 최고점수 저장 기능을 적용했습니다.
 
-Currently, two official plugins are available:
+## 프로젝트 목적
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+React의 기본 문법과 상태 관리 방식을 실제 인터랙티브 게임에 적용하기 위해 제작한 토이 프로젝트입니다.  
+단순 화면 구현이 아니라 사용자의 입력에 따라 게임 상태가 실시간으로 변경되는 구조를 구현하는 데 중점을 두었습니다.
 
-## React Compiler
+## 주요 기능
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 두더지 잡기 게임
 
-## Expanding the ESLint configuration
+- 3x3 두더지판 구성
+- 일반 두더지, 황금 두더지, 폭탄, 하트 아이템 등장
+- 방해 이모티콘 등장 및 클릭 제거 기능
+- 점수, 콤보, 목숨 시스템
+- 최고점수 저장
+- 게임오버 모달 애니메이션
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 방향키 장애물 피하기 게임
+
+- 방향키를 이용한 플레이어 이동
+- 장애물 충돌 판정
+- 별, 하트, 방패 아이템 기능
+- 목숨 시스템
+- 무적 상태 처리
+- 최고점수 저장
+- 게임오버 화면 처리
+
+## 사용 기술
+
+- React
+- JavaScript
+- Vite
+- CSS
+- localStorage
+
+## 구현 포인트
+
+### React 상태 관리
+
+`useState`를 사용하여 점수, 목숨, 시간, 게임 진행 여부, 게임오버 상태 등을 관리했습니다.
+
+### 타이머 및 반복 로직
+
+`useEffect`를 사용하여 제한 시간, 두더지 이동, 장애물 이동, 아이템 생성 등 반복적으로 실행되는 게임 로직을 구현했습니다.
+
+### 실시간 값 관리
+
+`useRef`를 사용하여 키 입력 상태, 현재 점수, 목숨, 충돌 여부 등 실시간으로 변경되는 값을 안정적으로 관리했습니다.
+
+### 조건부 렌더링
+
+게임 선택 메뉴, 게임 진행 화면, 게임 시작 화면, 게임오버 모달을 조건부 렌더링으로 분기했습니다.
+
+### 최고점수 저장
+
+`localStorage`를 사용하여 브라우저를 새로고침하거나 종료해도 최고점수가 유지되도록 구현했습니다.
+
+### UI 및 애니메이션
+
+CSS animation을 활용하여 두더지 등장, 방해 요소 등장, 게임오버 모달 팝업 효과를 구현했습니다.
+
+## 프로젝트 구조
+
+```text
+src
+ ┣ components
+ ┃ ┣ LifeHearts.jsx
+ ┃ ┗ GameOverModal.jsx
+ ┣ games
+ ┃ ┣ MoleGame.jsx
+ ┃ ┗ DodgeGame.jsx
+ ┣ utils
+ ┃ ┗ gameUtils.js
+ ┣ App.jsx
+ ┣ App.css
+ ┗ main.jsx
