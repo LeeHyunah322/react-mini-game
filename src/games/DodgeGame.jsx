@@ -84,9 +84,26 @@ function DodgeGame({ onBack }) {
     crashedRef.current = false;
     invincibleRef.current = false;
 
+	keysRef.current.left = false;
+	keysRef.current.right = false;
     if (invincibleTimerRef.current) {
       clearTimeout(invincibleTimerRef.current);
     }
+  };
+  
+  const startMove = (direction) => {
+    if (!isPlaying) return;
+
+    keysRef.current[direction] = true;
+  };
+
+  const stopMove = (direction) => {
+    keysRef.current[direction] = false;
+  };
+
+  const stopAllMoves = () => {
+    keysRef.current.left = false;
+    keysRef.current.right = false;
   };
 
   useEffect(() => {
@@ -338,6 +355,31 @@ function DodgeGame({ onBack }) {
 		  />
 		)}
       </div>
+	  
+	  <div className="mobile-controls">
+	    <button
+	      type="button"
+	      className="mobile-control-btn"
+	      onPointerDown={() => startMove("left")}
+	      onPointerUp={() => stopMove("left")}
+	      onPointerLeave={() => stopMove("left")}
+	      onPointerCancel={() => stopMove("left")}
+	    >
+	      ←
+	    </button>
+
+	    <button
+	      type="button"
+	      className="mobile-control-btn"
+	      onPointerDown={() => startMove("right")}
+	      onPointerUp={() => stopMove("right")}
+	      onPointerLeave={() => stopMove("right")}
+	      onPointerCancel={() => stopMove("right")}
+	    >
+	      →
+	    </button>
+	  </div>
+	  
 	  <div className="item-guide">
 	    <p className="guide-title">아이템</p>
 	    <p>⭐ 점수 +5</p>
