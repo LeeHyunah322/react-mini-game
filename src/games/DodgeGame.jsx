@@ -11,12 +11,41 @@ import {
   clamp,
 } from "../utils/gameUtils";
 
+const DODGE_DIFFICULTY = {
+  easy: {
+    label: "Easy",
+    obstacleSpeed: 3,
+    speedDivider: 9,
+    maxSpeedBonus: 5,
+    spawnBase: 24,
+    spawnDivider: 7,
+    minSpawnSpeed: 12,
+  },
+  normal: {
+    label: "Normal",
+    obstacleSpeed: 5,
+    speedDivider: 6,
+    maxSpeedBonus: 10,
+    spawnBase: 18,
+    spawnDivider: 5,
+    minSpawnSpeed: 8,
+  },
+  hard: {
+    label: "Hard",
+    obstacleSpeed: 7,
+    speedDivider: 4,
+    maxSpeedBonus: 18,
+    spawnBase: 14,
+    spawnDivider: 2,
+    minSpawnSpeed: 4,
+  },
+};
+
 function DodgeGame({ onBack }) {
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
-    return Number(localStorage.getItem("dodgeBestScore")) || 0;
+    return Number(localStorage.getItem("dodgeBestScore_normal")) || 0;
   });
-
   const [lives, setLives] = useState(3);
   const [playerX, setPlayerX] = useState((BOARD_WIDTH - PLAYER_SIZE) / 2);
   const [obstacles, setObstacles] = useState([]);
@@ -24,7 +53,20 @@ function DodgeGame({ onBack }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [isInvincible, setIsInvincible] = useState(false);
+  const [difficulty, setDifficulty] = useState("normal");
+  const [isPaused, setIsPaused] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  
+  const dodgeSetting = DODGE_DIFFICULTY[difficulty];
+  const getDodgeBestScoreKey = (level = difficulty) => {
+    return `dodgeBestScore_${level}`;
+  };
 
+  const changeDifficulty = (level) => {
+    setDifficulty(level);
+    setBestScore(Number(localStorage.getItem(getDodgeBestScoreKey(level))) || 0);
+  };
+  
   const keysRef = useRef({
     left: false,
     right: false,
@@ -46,10 +88,10 @@ function DodgeGame({ onBack }) {
 
     setBestScore((prevBestScore) => {
       const nextBestScore = Math.max(prevBestScore, finalScore);
-      localStorage.setItem("dodgeBestScore", String(nextBestScore));
+      localStorage.setItem(getDodgeBestScoreKey(), String(nextBestScore));
       return nextBestScore;
     });
-  }, []);
+  }, [difficulty]);
 
   const activateInvincible = useCallback((duration = 3000) => {
     invincibleRef.current = true;
@@ -68,6 +110,7 @@ function DodgeGame({ onBack }) {
   const startGame = () => {
     const startX = (BOARD_WIDTH - PLAYER_SIZE) / 2;
 
+	setIsPaused(false);
     setScore(0);
     setLives(3);
     setPlayerX(startX);
@@ -91,8 +134,65 @@ function DodgeGame({ onBack }) {
     }
   };
   
+  const resetGame = () => {
+    setScore(0);
+    setLives(3);
+    setObstacles([]);
+    setItems([]);
+    setIsPlaying(false);
+    setIsGameOver(false);
+    setIsPaused(false);
+    setIsInvincible(false);
+
+    scoreRef.current = 0;
+    livesRef.current = 3;
+    frameRef.current = 0;
+    crashedRef.current = false;
+    invincibleRef.current = false;
+
+    keysRef.current.left = false;
+    keysRef.current.right = false;
+
+    if (invincibleTimerRef.current) {
+      clearTimeout(invincibleTimerRef.current);
+    }
+  };
+  
+  useEffect(() => {
+    const handleEnterStart = (event) => {
+      if (event.key !== "Enter") return;
+      if (event.repeat) return;
+
+      if (!isPlaying) {
+        document.querySelector(".start-btn")?.click();
+      }
+    };
+
+    window.addEventListener("keydown", handleEnterStart);
+
+    return () => {
+      window.removeEventListener("keydown", handleEnterStart);
+    };
+  }, [isPlaying]);
+  
+  useEffect(() => {
+    const handleEscBack = (event) => {
+      if (event.key === "Escape") {
+        keysRef.current.left = false;
+        keysRef.current.right = false;
+        onBack();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscBack);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscBack);
+    };
+  }, [onBack]);
+  
   const startMove = (direction) => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
     keysRef.current[direction] = true;
   };
@@ -141,7 +241,7 @@ function DodgeGame({ onBack }) {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
     const scoreTimer = setInterval(() => {
       setScore((prevScore) => {
@@ -155,7 +255,7 @@ function DodgeGame({ onBack }) {
   }, [isPlaying]);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
     const gameLoop = setInterval(() => {
       frameRef.current += 1;
@@ -173,9 +273,16 @@ function DodgeGame({ onBack }) {
       });
 
       setObstacles((prevObstacles) => {
-        const difficulty = Math.min(7, scoreRef.current / 6);
-        const spawnSpeed = Math.max(8, 18 - Math.floor(scoreRef.current / 5));
+		const speedBonus = Math.min(
+		  dodgeSetting.maxSpeedBonus,
+		  scoreRef.current / dodgeSetting.speedDivider
+		);
 
+		const spawnSpeed = Math.max(
+		  dodgeSetting.minSpawnSpeed,
+		  dodgeSetting.spawnBase - Math.floor(scoreRef.current / dodgeSetting.spawnDivider)
+		);
+		
         let nextObstacles = prevObstacles
           .map((obstacle) => ({
             ...obstacle,
@@ -188,7 +295,7 @@ function DodgeGame({ onBack }) {
             id: Date.now() + Math.random(),
             x: Math.random() * (BOARD_WIDTH - OBSTACLE_SIZE),
             y: -OBSTACLE_SIZE,
-            speed: 4 + difficulty,
+            speed: dodgeSetting.obstacleSpeed + speedBonus,
           });
         }
 
@@ -280,7 +387,7 @@ function DodgeGame({ onBack }) {
     }, 30);
 
     return () => clearInterval(gameLoop);
-  }, [isPlaying, activateInvincible, finishGame]);
+  }, [isPlaying, isPaused, difficulty, activateInvincible, finishGame]);
 
   return (
     <div className="game-page">
@@ -288,7 +395,24 @@ function DodgeGame({ onBack }) {
         ← 메뉴로
       </button>
 
-      <h1>방향키 장애물 피하기</h1>
+	  <div className="game-title-row">
+	    <h1>방향키 장애물 피하기</h1>
+
+	    {isPlaying && !isGameOver && (
+	      <>
+	        <button
+	          className="pause-btn"
+	          onClick={() => setIsPaused((prev) => !prev)}
+	        >
+	          {isPaused ? "▶️" : "⏸️"}
+	        </button>
+
+	        <button className="pause-btn" onClick={resetGame}>
+	          🔄
+	        </button>
+	      </>
+	    )}
+	  </div>
 
 	  <div className="status-box dodge-status">
 	    <span>점수: {score}점</span>
@@ -336,15 +460,30 @@ function DodgeGame({ onBack }) {
           </div>
         ))}
 
-        {!isPlaying && !isGameOver && (
-          <div className="board-overlay">
-            <p>방향키로 장애물을 피하세요.</p>
-            <p>아이템을 먹으면 유리해집니다.</p>
-            <button className="start-btn" onClick={startGame}>
-              게임 시작
-            </button>
-          </div>
-        )}
+		{!isPlaying && !isGameOver && (
+		  <div className="board-overlay">
+		    <h3>게임 방법</h3>
+		    <p>← → 방향키 또는 모바일 버튼으로 이동합니다.</p>
+		    <p>빨간 장애물을 피하세요.</p>
+		    <p>⭐ 점수 +5 / ❤️ 목숨 회복 / 🛡️ 3초 무적</p>
+
+		    <div className="difficulty-buttons">
+		      {Object.entries(DODGE_DIFFICULTY).map(([key, value]) => (
+		        <button
+		          key={key}
+		          className={`difficulty-btn ${difficulty === key ? "active" : ""}`}
+		          onClick={() => changeDifficulty(key)}
+		        >
+		          {value.label}
+		        </button>
+		      ))}
+		    </div>
+
+			<button className="start-btn" onClick={startGame}>
+			  게임 시작
+			</button>
+		  </div>
+		)}
 
 		{isGameOver && (
 		  <GameOverModal
@@ -354,6 +493,22 @@ function DodgeGame({ onBack }) {
 		    onRestart={startGame}
 		  />
 		)}
+		
+		{isPaused && (
+		  <div className="pause-overlay">
+		    <div className="pause-card">
+		      <h2>일시정지</h2>
+		      <div className="btn-row">
+		        <button className="start-btn" onClick={() => setIsPaused(false)}>
+		          계속하기
+		        </button>
+		        <button className="start-btn" onClick={onBack}>
+		          메뉴로
+		        </button>
+		      </div>
+		    </div>
+		  </div>
+		)}
       </div>
 	  
 	  <div className="mobile-controls">
@@ -362,8 +517,8 @@ function DodgeGame({ onBack }) {
 	      className="mobile-control-btn"
 	      onPointerDown={() => startMove("left")}
 	      onPointerUp={() => stopMove("left")}
-	      onPointerLeave={() => stopMove("left")}
-	      onPointerCancel={() => stopMove("left")}
+		  onPointerLeave={stopAllMoves}
+		  onPointerCancel={stopAllMoves}
 	    >
 	      ←
 	    </button>
@@ -373,8 +528,8 @@ function DodgeGame({ onBack }) {
 	      className="mobile-control-btn"
 	      onPointerDown={() => startMove("right")}
 	      onPointerUp={() => stopMove("right")}
-	      onPointerLeave={() => stopMove("right")}
-	      onPointerCancel={() => stopMove("right")}
+		  onPointerLeave={stopAllMoves}
+		  onPointerCancel={stopAllMoves}
 	    >
 	      →
 	    </button>
@@ -389,6 +544,22 @@ function DodgeGame({ onBack }) {
 	    {isInvincible && <p className="invincible-text">현재 무적 상태</p>}
 	  </div>
 	  </div>
+	  {showGuide && (
+	    <div className="pause-overlay">
+	      <div className="pause-card guide-card">
+	        <h2>게임 방법</h2>
+	        <p>← → 방향키 또는 모바일 버튼으로 이동합니다.</p>
+	        <p>빨간 장애물을 피하세요.</p>
+	        <p>⭐ 별: 점수 +5</p>
+	        <p>❤️ 하트: 목숨 회복</p>
+	        <p>🛡️ 방패: 3초 무적</p>
+
+	        <button className="start-btn" onClick={() => setShowGuide(false)}>
+	          확인
+	        </button>
+	      </div>
+	    </div>
+	  )}
     </div>
   );
 }

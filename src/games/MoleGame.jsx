@@ -3,18 +3,54 @@ import LifeHearts from "../components/LifeHearts";
 import GameOverModal from "../components/GameOverModal";
 import { getRandomHole} from "../utils/gameUtils";
 
+const MOLE_DIFFICULTY = {
+	easy: {
+	  label: "Easy",
+	  time: 40,
+	  speedMin: 900,
+	  speedBase: 1700,
+	  speedDown: 5,
+	  blockerDelay: 6000,
+	  heartRate: 0.14,
+	  bombRate: 0.08,
+	  goldRate: 0.20,
+	},
+	normal: {
+	  label: "Normal",
+	  time: 30,
+	  speedMin: 700,
+	  speedBase: 1400,
+	  speedDown: 8,
+	  blockerDelay: 4300,
+	  heartRate: 0.08,
+	  bombRate: 0.12,
+	  goldRate: 0.16,
+	},
+	hard: {
+	  label: "Hard",
+	  time: 25,
+	  speedMin: 500,
+	  speedBase: 1100,
+	  speedDown: 12,
+	  blockerDelay: 3000,
+	  heartRate: 0.04,
+	  bombRate: 0.22,
+	  goldRate: 0.10,
+	},
+};
+
 function MoleGame({ onBack }) {
-	const getRandomTarget = (currentHole = -1) => {
+	const getRandomTarget = (currentHole = -1, setting = moleSetting) => {
 	  const hole = getRandomHole(currentHole);
 	  const random = Math.random();
 
 	  let type = "mole";
 
-	  if (random < 0.08) {
+	  if (random < setting.heartRate) {
 	    type = "heart";
-	  } else if (random < 0.20) {
+	  } else if (random < setting.heartRate + setting.bombRate) {
 	    type = "bomb";
-	  } else if (random < 0.36) {
+	  } else if (random < setting.heartRate + setting.bombRate + setting.goldRate) {
 	    type = "gold";
 	  }
 
@@ -23,18 +59,32 @@ function MoleGame({ onBack }) {
 	
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() => {
-    return Number(localStorage.getItem("moleBestScore")) || 0;
+    return Number(localStorage.getItem("moleBestScore_normal")) || 0;
   });
 
   const [time, setTime] = useState(30);
   const [lives, setLives] = useState(3);
-  const [target, setTarget] = useState(getRandomTarget());
+  const [target, setTarget] = useState(() =>
+    getRandomTarget(-1, MOLE_DIFFICULTY.normal)
+  );
   const [blocker, setBlocker] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [combo, setCombo] = useState(0);
   const [message, setMessage] = useState("게임 시작을 누르세요.");
+  const [difficulty, setDifficulty] = useState("normal");
+  const [isPaused, setIsPaused] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
+  const moleSetting = MOLE_DIFFICULTY[difficulty];
+  const getMoleBestScoreKey = (level = difficulty) => {
+    return `moleBestScore_${level}`;
+  };
+  
+  useEffect(() => {
+    setBestScore(Number(localStorage.getItem(getMoleBestScoreKey())) || 0);
+  }, [difficulty]);
+  
   const scoreRef = useRef(0);
   const livesRef = useRef(3);
   const targetRef = useRef(target);
@@ -53,7 +103,7 @@ function MoleGame({ onBack }) {
 
     setBestScore((prevBestScore) => {
       const nextBestScore = Math.max(prevBestScore, finalScore);
-      localStorage.setItem("moleBestScore", String(nextBestScore));
+      localStorage.setItem(getMoleBestScoreKey(), String(nextBestScore));
       return nextBestScore;
     });
   };
@@ -73,16 +123,17 @@ function MoleGame({ onBack }) {
   };
 
   const changeTarget = () => {
-    const nextTarget = getRandomTarget(targetRef.current.hole);
+    const nextTarget = getRandomTarget(targetRef.current.hole, moleSetting);
     targetRef.current = nextTarget;
     setTarget(nextTarget);
   };
 
   const startGame = () => {
-    const firstTarget = getRandomTarget();
+    const firstTarget = getRandomTarget(-1, moleSetting);
 
     setScore(0);
-    setTime(30);
+	setTime(moleSetting.time);
+	setIsPaused(false);
     setLives(3);
     setTarget(firstTarget);
 	setBlocker(null);
@@ -96,9 +147,56 @@ function MoleGame({ onBack }) {
     targetRef.current = firstTarget;
     gameEndedRef.current = false;
   };
+  
+  const resetGame = () => {
+    setScore(0);
+    setTime(moleSetting.time);
+    setLives(3);
+    setCombo(0);
+    setBlocker(null);
+    setIsPlaying(false);
+    setIsGameOver(false);
+    setIsPaused(false);
+    setMessage("게임 시작을 누르세요.");
+
+    scoreRef.current = 0;
+    livesRef.current = 3;
+    gameEndedRef.current = false;
+  };
+  
+  useEffect(() => {
+    const handleEnterStart = (event) => {
+      if (event.key !== "Enter") return;
+      if (event.repeat) return;
+
+      if (!isPlaying) {
+        document.querySelector(".start-btn")?.click();
+      }
+    };
+
+    window.addEventListener("keydown", handleEnterStart);
+
+    return () => {
+      window.removeEventListener("keydown", handleEnterStart);
+    };
+  }, [isPlaying]);
 
   useEffect(() => {
-    if (!isPlaying) return;
+      const handleEscBack = (event) => {
+        if (event.key === "Escape"){
+			onBack();
+		}
+      };
+
+      window.addEventListener("keydown", handleEscBack);
+
+      return () => {
+        window.removeEventListener("keydown", handleEscBack);
+      };
+    }, [onBack]);
+  
+  useEffect(() => {
+    if (!isPlaying || isPaused) return;
 
     const timer = setInterval(() => {
       setTime((prevTime) => {
@@ -112,12 +210,15 @@ function MoleGame({ onBack }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isPlaying]);
+  }, [isPlaying,isPaused]);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
-    const speed = Math.max(700, 1400 - score * 8);
+	const speed = Math.max(
+	  moleSetting.speedMin,
+	  moleSetting.speedBase - score * moleSetting.speedDown
+	);
 
 	const moleTimer = setInterval(() => {
 	  if (targetRef.current.type === "bomb") {
@@ -133,10 +234,10 @@ function MoleGame({ onBack }) {
 	}, speed);
 	
     return () => clearInterval(moleTimer);
-  }, [isPlaying, score]);
+  }, [isPlaying, isPaused, score, difficulty]);
   
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
     const blockerTimer = setInterval(() => {
       const size = Math.random() < 0.5 ? 130 : 165;
@@ -156,16 +257,16 @@ function MoleGame({ onBack }) {
       setTimeout(() => {
         setBlocker(null);
       }, 850);
-    }, 2600);
+    }, moleSetting.blockerDelay);
 
     return () => {
       clearInterval(blockerTimer);
       setBlocker(null);
     };
-  }, [isPlaying]);
+  }, [isPlaying, isPaused, difficulty]);
 
   const handleHoleClick = (index) => {
-    if (!isPlaying) return;
+    if (!isPlaying || isPaused) return;
 
     if (index !== target.hole) {
       loseLife("헛방! 목숨 -1");
@@ -208,6 +309,8 @@ function MoleGame({ onBack }) {
     setMessage(bonus === 2 ? "콤보 보너스 +2점!" : "성공 +1점!");
     changeTarget();
   };
+  
+  
 
   return (
     <div className="game-page">
@@ -215,7 +318,24 @@ function MoleGame({ onBack }) {
         ← 메뉴로
       </button>
 
-      <h1>두더지 잡기</h1>
+	  <div className="game-title-row">
+	    <h1>두더지 잡기</h1>
+
+	    {isPlaying && !isGameOver && (
+	      <>
+	        <button
+	          className="pause-btn"
+	          onClick={() => setIsPaused((prev) => !prev)}
+	        >
+	          {isPaused ? "▶️" : "⏸️"}
+	        </button>
+
+	        <button className="pause-btn" onClick={resetGame}>
+	          🔄
+	        </button>
+	      </>
+	    )}
+	  </div>
 
 	  <div className="status-box mole-status">
 	    <span>시간: {time}초</span>
@@ -276,14 +396,66 @@ function MoleGame({ onBack }) {
 		    onRestart={startGame}
 		  />
 		)}
+		
+		{isPaused && (
+		  <div className="pause-overlay">
+		    <div className="pause-card">
+		      <h2>일시정지</h2>
+		      <div className="btn-row">
+		        <button className="start-btn" onClick={() => setIsPaused(false)}>
+		          계속하기
+		        </button>
+		        <button className="start-btn" onClick={onBack}>
+		          메뉴로
+		        </button>
+		      </div>
+		    </div>
+		  </div>
+		)}
 	  </div>
 
-      {!isPlaying && !isGameOver && (
-        <button className="start-btn" onClick={startGame}>
-          게임 시작
-        </button>
-      )}
+	  {!isPlaying && !isGameOver && (
+	    <div className="pre-game-card">
+	      <div className="difficulty-buttons">
+	        {Object.entries(MOLE_DIFFICULTY).map(([key, value]) => (
+	          <button
+	            key={key}
+	            className={`difficulty-btn ${difficulty === key ? "active" : ""}`}
+	            onClick={() => setDifficulty(key)}
+	          >
+	            {value.label}
+	          </button>
+	        ))}
+	      </div>
 
+	      <div className="btn-row" style={{ justifyContent: "center" }}>
+	        <button className="start-btn" onClick={startGame}>
+	          게임 시작
+	        </button>
+
+			<button className="start-btn" onClick={() => setShowGuide(true)}>
+			  게임 방법
+			</button>
+	      </div>
+	    </div>
+	  )}
+	  
+	  {showGuide && (
+	    <div className="pause-overlay">
+	      <div className="pause-card guide-card">
+	        <h2>게임 방법</h2>
+	        <p>🐹 두더지를 클릭하면 점수가 올라갑니다.</p>
+	        <p>🌟 황금 두더지는 +3점입니다.</p>
+	        <p>💣 폭탄을 누르면 목숨이 줄어듭니다.</p>
+	        <p>❤️ 하트는 목숨을 회복합니다.</p>
+	        <p>🙈 방해 이모티콘은 누르면 사라집니다.</p>
+
+	        <button className="start-btn" onClick={() => setShowGuide(false)}>
+	          확인
+	        </button>
+	      </div>
+	    </div>
+	  )}
 
     </div>
   );
